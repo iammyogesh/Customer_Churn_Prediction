@@ -30,15 +30,107 @@ export function predict(raw) {
     return { f, contribution: (model.weights[i] * (x - model.mean[i])) / model.std[i] };
   });
   const logit = model.bias + parts.reduce((s, d) => s + d.contribution, 0);
-  // Group the one-hot columns of a field into ONE readable driver, e.g. "Contract: Month-to-month"
   const groups = new Map();
   parts.forEach(({ f, contribution }) => {
     const id = f.type === "cat" ? f.key : f.name;
     const label = f.type === "cat" ? `${PRETTY[f.key] || f.key.replace(/([a-z])([A-Z])/g, "$1 $2")}: ${c[f.key]}` : f.label;
-    const g = groups.get(id) || { label, contribution: 0 };
+    const g = groups.get(id) || { name: label, contribution: 0 };
     g.contribution += contribution;
     groups.set(id, g);
   });
   return { prob: sigmoid(logit), drivers: [...groups.values()] };
 }
+
+export const THR = model.meta.threshold;
+
+export const YN = ["No", "Yes"];
+
+export const OPTIONS = {
+  Contract: ["Month-to-month", "One year", "Two year"],
+  InternetService: ["DSL", "Fiber optic", "No"],
+  PaymentMethod: [
+    "Electronic check",
+    "Mailed check",
+    "Bank transfer (automatic)",
+    "Credit card (automatic)"
+  ],
+  PaperlessBilling: YN,
+  Partner: YN,
+  Dependents: YN,
+  SeniorCitizen: [0, 1],
+  PhoneService: YN,
+  MultipleLines: YN,
+  OnlineSecurity: YN,
+  OnlineBackup: YN,
+  DeviceProtection: YN,
+  TechSupport: YN,
+  StreamingTV: YN,
+  StreamingMovies: YN
+};
+
+export const PRESETS = {
+  "High-risk": {
+    SeniorCitizen: 1, Partner: "No", Dependents: "No", tenure: 1,
+    PhoneService: "Yes", MultipleLines: "Yes", InternetService: "Fiber optic",
+    OnlineSecurity: "No", OnlineBackup: "No", DeviceProtection: "No",
+    TechSupport: "No", StreamingTV: "Yes", StreamingMovies: "Yes",
+    Contract: "Month-to-month", PaperlessBilling: "Yes",
+    PaymentMethod: "Electronic check", MonthlyCharges: 95.1
+  },
+  "Typical": {
+    SeniorCitizen: 0, Partner: "Yes", Dependents: "No", tenure: 24,
+    PhoneService: "Yes", MultipleLines: "No", InternetService: "Fiber optic",
+    OnlineSecurity: "No", OnlineBackup: "Yes", DeviceProtection: "No",
+    TechSupport: "No", StreamingTV: "Yes", StreamingMovies: "No",
+    Contract: "Month-to-month", PaperlessBilling: "Yes",
+    PaymentMethod: "Electronic check", MonthlyCharges: 79.5
+  },
+  "Loyal": {
+    SeniorCitizen: 0, Partner: "Yes", Dependents: "Yes", tenure: 72,
+    PhoneService: "Yes", MultipleLines: "Yes", InternetService: "DSL",
+    OnlineSecurity: "Yes", OnlineBackup: "Yes", DeviceProtection: "Yes",
+    TechSupport: "Yes", StreamingTV: "Yes", StreamingMovies: "Yes",
+    Contract: "Two year", PaperlessBilling: "No",
+    PaymentMethod: "Credit card (automatic)", MonthlyCharges: 82.65
+  }
+};
+
+export function tier(prob) {
+  if (prob >= 0.6) {
+    return {
+      name: "High Risk",
+      color: "#ef4444",
+      tip: "Immediate churn intervention required.",
+      actions: [
+        "Offer 1-year contract renewal with $15/mo discount",
+        "Assign priority tech support representative",
+        "Pitch bundled TechSupport + OnlineSecurity at zero cost",
+        "Incentivize automatic payment transition ($5 bill credit)"
+      ]
+    };
+  }
+  if (prob >= 0.3) {
+    return {
+      name: "Moderate Risk",
+      color: "#f59e0b",
+      tip: "Proactive retention engagement recommended.",
+      actions: [
+        "Promote loyalty discount on long-term contract",
+        "Encourage auto-pay setup with bill credit",
+        "Send satisfaction check-in survey with follow-up"
+      ]
+    };
+  }
+  return {
+    name: "Low Risk",
+    color: "#10b981",
+    tip: "Customer relationship is healthy and stable.",
+    actions: [
+      "Upsell additional premium streaming add-ons",
+      "Enroll in customer loyalty & advocacy program",
+      "Request NPS review or referral"
+    ]
+  };
+}
+
 export { model };
